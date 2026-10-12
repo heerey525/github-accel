@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+._*
+
+# 打包产物
+dist/
+*.zip
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 本工具运行时产生的状态文件（不应入库）
+# 实际路径在 ~/.config/gh-accel/，此处仅作说明
+state
+probe.log
+git-url-backup
