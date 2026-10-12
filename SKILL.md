@@ -100,9 +100,14 @@ bash $S url https://github.com/a/b.git   # 把单个 URL 转成加速 URL
 ### 总览与体检
 
 ```bash
-bash $S status    # 各生态当前源一览
-bash $S doctor    # 体检：路由 / push 通道 / SSH / 各生态可用性 / 失效域名
+bash $S status          # 各生态当前源一览
+bash $S doctor          # 体检：路由 / push 通道 / SSH / 各生态可用性 / 失效域名
+bash $S selftest        # 无副作用自检（不修改任何真实配置）
+bash $S selftest --net  # 追加网络连通测试
 ```
+
+`selftest` 检查 6 组：运行环境 / 源表完整性 / 命令冒烟 / 当前源识别 / **配置写入可逆性** / 网络连通（可选）。
+其中写入可逆性用**隔离的 `GIT_CONFIG_GLOBAL`** 验证，跑完不碰真实配置，可放心执行。
 
 ### 自定义源
 

@@ -75,6 +75,7 @@ bash $S test                # 全生态测速对比
 |---|---|
 | `status` | 各生态当前源一览 |
 | `doctor` | 体检：路由 / push 通道 / SSH / 各生态可用性 / 失效域名 |
+| `selftest [--net]` | 无副作用自检（`--net` 追加网络连通测试） |
 
 **生态（eco）**：`github` · `npm` · `pip` · `go` · `cargo`
 

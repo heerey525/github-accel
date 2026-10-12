@@ -715,6 +715,139 @@ check_eco() {
 }
 
 # ---------------------------------------------------------------------------
+# selftest - 无副作用自检
+# ---------------------------------------------------------------------------
+ST_PASS=0
+ST_FAIL=0
+
+t_ok()   { printf "  ${C_OK}PASS${C_OFF} %b\n" "$1"; ST_PASS=$((ST_PASS+1)); }
+t_fail() { printf "  ${C_ERR}FAIL${C_OFF} %b\n" "$1"; ST_FAIL=$((ST_FAIL+1)); }
+t_skip() { printf "  ${C_DIM}SKIP${C_OFF} %b\n" "$1"; }
+
+cmd_selftest() {
+  local want_net=0
+  [ "${1:-}" = "--net" ] && want_net=1
+  ST_PASS=0; ST_FAIL=0
+  local self="${BASH_SOURCE[0]}"
+  case "$self" in /*) ;; *) self="$(pwd)/$self" ;; esac
+
+  bold "gh-accel 自检（默认全部只读，不修改任何真实配置）"
+  echo
+
+  bold "[1] 运行环境"
+  t_ok "bash ${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}"
+  local c
+  for c in curl git; do
+    if command -v "$c" >/dev/null 2>&1; then
+      t_ok "必需依赖 ${c}: $(command -v "$c")"
+    else
+      t_fail "缺少必需依赖 ${c}"
+    fi
+  done
+  for c in npm pip go cargo; do
+    if command -v "$c" >/dev/null 2>&1; then
+      t_ok "可选工具 ${c}: $(command -v "$c")"
+    else
+      t_skip "${c} 未安装（对应生态不可用）"
+    fi
+  done
+
+  echo
+  bold "[2] 源表完整性"
+  local eco cnt
+  for eco in $(mirror_ecos); do
+    cnt=$(mirror_names "$eco" | wc -l | tr -d ' ')
+    if [ "$cnt" -ge 2 ]; then t_ok "${eco}: ${cnt} 个源"; else t_fail "${eco}: 源不足（${cnt}）"; fi
+  done
+  local badrows dupes
+  badrows=$(mirror_rows | awk -F'|' 'NF<3' | wc -l | tr -d ' ')
+  if [ "$badrows" = "0" ]; then t_ok "源表格式正确（每行 >=3 字段）"; else t_fail "${badrows} 行格式异常"; fi
+  dupes=$(mirror_rows | awk -F'|' '{print $1"|"$2}' | sort | uniq -d | wc -l | tr -d ' ')
+  if [ "$dupes" = "0" ]; then t_ok "无重复源名"; else t_fail "${dupes} 个重复的 eco|name"; fi
+
+  echo
+  bold "[3] 命令冒烟"
+  local cmd
+  for cmd in ls status help; do
+    if bash "$self" "$cmd" >/dev/null 2>&1; then
+      t_ok "gh-accel ${cmd}"
+    else
+      t_fail "gh-accel ${cmd} 退出码非 0"
+    fi
+  done
+
+  echo
+  bold "[4] 当前源识别"
+  local cur
+  for eco in $(mirror_ecos); do
+    cur=$(current_mirror "$eco")
+    if [ -n "$cur" ]; then
+      t_ok "${eco} → ${cur}"
+    else
+      case "$eco" in
+        go|cargo)
+          if command -v "$eco" >/dev/null 2>&1; then t_skip "${eco} 未设置源"; else t_skip "${eco} 未安装"; fi ;;
+        *) t_skip "${eco} 未设置源（或为非内置源）" ;;
+      esac
+    fi
+  done
+
+  echo
+  bold "[5] 配置写入可逆性（隔离 GIT_CONFIG_GLOBAL，不碰真实配置）"
+  local tmpcfg key
+  tmpcfg=$(mktemp)
+  : > "$tmpcfg"
+  key="url.https://gh-proxy.com/https://github.com/.insteadOf"
+  GIT_CONFIG_GLOBAL="$tmpcfg" git config --global "$key" "https://github.com/" 2>/dev/null
+  if [ "$(GIT_CONFIG_GLOBAL="$tmpcfg" git config --global --get "$key" 2>/dev/null)" = "https://github.com/" ]; then
+    t_ok "写入 insteadOf 规则"
+  else
+    t_fail "写入 insteadOf 规则"
+  fi
+  GIT_CONFIG_GLOBAL="$tmpcfg" git config --global --unset "$key" 2>/dev/null
+  if [ -z "$(GIT_CONFIG_GLOBAL="$tmpcfg" git config --global --get "$key" 2>/dev/null)" ]; then
+    t_ok "清除 insteadOf 规则"
+  else
+    t_fail "清除 insteadOf 规则"
+  fi
+  rm -f "$tmpcfg"
+
+  echo
+  bold "[6] 网络连通"
+  if [ "$want_net" = "1" ]; then
+    local n u note res code hit tot
+    for eco in $(mirror_ecos); do
+      hit=0; tot=0
+      while IFS='|' read -r c n u note; do
+        [ "$c" = "$eco" ] || continue
+        tot=$((tot+1))
+        res=$(speed_of "$eco" "$u")
+        code=$(printf '%s' "$res" | cut -f1)
+        [ "$code" = "200" ] && hit=$((hit+1))
+      done <<EOF
+$(mirror_rows)
+EOF
+      if [ "$hit" -gt 0 ]; then
+        t_ok "${eco}: ${hit}/${tot} 个源可通"
+      else
+        t_fail "${eco}: 0/${tot} 可通"
+      fi
+    done
+  else
+    t_skip "已跳过（加 --net 启用，会发起真实网络请求）"
+  fi
+
+  echo
+  if [ "$ST_FAIL" = "0" ]; then
+    ok "全部通过（${ST_PASS} 项）"
+    return 0
+  else
+    err "${ST_FAIL} 项失败 / ${ST_PASS} 项通过"
+    return 1
+  fi
+}
+
+# ---------------------------------------------------------------------------
 cmd_help() {
   cat <<'HELP'
 gh-accel - 多生态镜像源管理器（参考 nrm 交互）
@@ -740,6 +873,7 @@ GitHub 专项:
 其它:
   status                       总览各生态当前源
   doctor                       体检（路由 / push 通道 / SSH / 各生态 / 失效域名）
+  selftest [--net]             无副作用自检（--net 追加网络连通测试）
   help                         显示本帮助
 
 示例:
@@ -769,6 +903,7 @@ case "${1:-help}" in
   url)    shift; cmd_url "${1:-}" ;;
   verify) cmd_verify ;;
   doctor) cmd_doctor ;;
+  selftest) shift; cmd_selftest "${1:-}" ;;
   help|-h|--help) cmd_help ;;
   *) err "未知命令: $1"; log ""; cmd_help; exit 1 ;;
 esac
