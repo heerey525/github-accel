@@ -170,14 +170,15 @@ ghproxy.link        # 返回 HTML 而非文件，不支持 URL 直接拼接
 
 ### npm
 
-| 源名 | 值 |
-|---|---|
-| `npm` | `https://registry.npmjs.org/` |
-| `taobao` | `https://registry.npmmirror.com/` |
-| `tencent` | `https://mirrors.cloud.tencent.com/npm/` |
-| `huawei` | `https://repo.huaweicloud.com/repository/npm/` |
-| `cnpm` | `https://r.cnpmjs.org/` |
-| `yarn` | `https://registry.yarnpkg.com/` |
+| 源名 | 值 | 备注 |
+|---|---|---|
+| `npm` | `https://registry.npmjs.org/` | 官方（nrm 同名） |
+| `taobao` | `https://registry.npmmirror.com/` | 阿里 npmmirror（nrm 同名） |
+| `tencent` | `https://mirrors.tencent.com/npm/` | 腾讯软件源（nrm 同名） |
+| `tencent-cloud` | `https://mirrors.cloud.tencent.com/npm/` | 腾讯云镜像（旧域名） |
+| `huawei` | `https://repo.huaweicloud.com/repository/npm/` | 华为云（nrm 同名） |
+| `cnpm` | `https://r.cnpmjs.org/` | cnpm，较慢（nrm 同名） |
+| `yarn` | `https://registry.yarnpkg.com/` | yarn 官方（nrm 同名） |
 
 ### pip
 
@@ -185,6 +186,7 @@ ghproxy.link        # 返回 HTML 而非文件，不支持 URL 直接拼接
 |---|---|
 | `tencent` | `https://mirrors.cloud.tencent.com/pypi/simple/` |
 | `aliyun` | `https://mirrors.aliyun.com/pypi/simple/` |
+| `huawei` | `https://repo.huaweicloud.com/repository/pypi/simple/` |
 | `ustc` | `https://pypi.mirrors.ustc.edu.cn/simple/` |
 | `tuna` | `https://pypi.tuna.tsinghua.edu.cn/simple/` |
 | `pypi` | `https://pypi.org/simple/` |
@@ -218,6 +220,26 @@ ghproxy.link        # 返回 HTML 而非文件，不支持 URL 直接拼接
 | pip | `~/.config/pip/pip.conf`（或 `~/.pip/pip.conf`）的 `index-url` |
 | go | `go env GOPROXY`（比对时自动去掉 `,direct` 后缀） |
 | cargo | `~/.cargo/config.toml` 的 `registry` |
+
+### 与 nrm 内置源的对照（nrm 2.1.0）
+
+nrm 的内置源定义在 `nrm/dist/constants.js` 的 `REGISTRIES`，共 7 条。逐条对照：
+
+| nrm 源 | nrm 的值 | gh-accel 对应 | 状态 |
+|---|---|---|---|
+| `npm` | `https://registry.npmjs.org/` | `npm` | ✅ 一致 |
+| `yarn` | `https://registry.yarnpkg.com/` | `yarn` | ✅ 一致 |
+| `taobao` | `https://registry.npmmirror.com/` | `taobao` | ✅ 一致 |
+| `cnpm` | `https://r.cnpmjs.org/` | `cnpm` | ✅ 一致 |
+| `huawei` | `https://repo.huaweicloud.com/repository/npm/` | `huawei` | ✅ 一致 |
+| `tencent` | `https://mirrors.tencent.com/npm/` | `tencent` | ✅ 一致（v1.1.1 修正） |
+| `npmMirror` | `https://skimdb.npmjs.com/registry/` | — | ❌ **未收录，源已失效** |
+
+**关于 `npmMirror`（未收录）**：实测 `https://skimdb.npmjs.com/` 根路径返回 200，但查包路径 `https://skimdb.npmjs.com/registry/express` 返回 **404**，`/registry/-/all` 同样 404——它已不能作为 npm registry 使用。nrm 列表里仍保留，但切过去装不了包。gh-accel 故意不收录，避免用户切到死源。
+
+**关于 `tencent`（曾不一致，已修正）**：nrm 用 `mirrors.tencent.com`（腾讯软件源新域名），早期 gh-accel 误用了 `mirrors.cloud.tencent.com`（腾讯云旧域名）。两者实测都能通、速度相近（0.6–1.2s 波动），但**域名不一致会导致跨工具识别失败**——在 nrm 里切到 tencent 后，gh-accel 会认不出当前源。v1.1.1 已对齐为 nrm 的值，同时保留 `tencent-cloud` 作为旧域名备选。
+
+> 若你的 nrm 版本更新后新增了源，用 `nrm ls` 对照本表，缺失的可用 `gh-accel add npm <name> <url>` 自行补上。
 
 ### 与 git-mng 的 key 对应关系
 

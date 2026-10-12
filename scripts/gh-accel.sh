@@ -20,14 +20,16 @@ github|gh-proxy|https://gh-proxy.com|只读镜像，release 实测最快
 github|ghfast|https://ghfast.top|只读镜像，次选
 github|ghproxy-net|https://ghproxy.net|只读镜像，较慢
 github|direct|https://github.com|HTTPS 直连，国内常超时
-npm|npm|https://registry.npmjs.org/|官方
-npm|taobao|https://registry.npmmirror.com/|阿里 npmmirror
-npm|tencent|https://mirrors.cloud.tencent.com/npm/|腾讯云
-npm|huawei|https://repo.huaweicloud.com/repository/npm/|华为云
-npm|cnpm|https://r.cnpmjs.org/|cnpm，较慢
-npm|yarn|https://registry.yarnpkg.com/|yarn 官方
+npm|npm|https://registry.npmjs.org/|官方（nrm 同名）
+npm|taobao|https://registry.npmmirror.com/|阿里 npmmirror（nrm 同名）
+npm|tencent|https://mirrors.tencent.com/npm/|腾讯软件源（nrm 同名）
+npm|tencent-cloud|https://mirrors.cloud.tencent.com/npm/|腾讯云镜像（旧域名）
+npm|huawei|https://repo.huaweicloud.com/repository/npm/|华为云（nrm 同名）
+npm|cnpm|https://r.cnpmjs.org/|cnpm，较慢（nrm 同名）
+npm|yarn|https://registry.yarnpkg.com/|yarn 官方（nrm 同名）
 pip|tencent|https://mirrors.cloud.tencent.com/pypi/simple/|腾讯云
 pip|aliyun|https://mirrors.aliyun.com/pypi/simple/|阿里云
+pip|huawei|https://repo.huaweicloud.com/repository/pypi/simple/|华为云
 pip|ustc|https://pypi.mirrors.ustc.edu.cn/simple/|中科大
 pip|tuna|https://pypi.tuna.tsinghua.edu.cn/simple/|清华
 pip|pypi|https://pypi.org/simple/|官方
@@ -338,12 +340,13 @@ cmd_ls() {
     [ -n "$filter" ] && [ "$eco" != "$filter" ] && continue
     cur=$(current_mirror "$eco")
     bold "$(eco_title "$eco")"
-    local eco2 n u note mark pad fill
+    local eco2 n u note mark pad fill maxlen
+    maxlen=$(mirror_names "$eco" | awk '{ if (length($0) > m) m = length($0) } END { print (m ? m : 1) }')
     while IFS='|' read -r eco2 n u note; do
       [ "$eco2" = "$eco" ] || continue
       mark=" "
       [ "$n" = "$cur" ] && mark="*"
-      pad=$((12 - ${#n}))
+      pad=$((maxlen - ${#n} + 1))
       [ "$pad" -lt 1 ] && pad=1
       fill=$(printf '%*s' "$pad" '' | tr ' ' '-')
       printf '  %s %s %s %s' "$mark" "$n" "$fill" "$u"

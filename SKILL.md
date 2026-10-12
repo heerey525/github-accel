@@ -4,7 +4,7 @@ display_name: GitHub 加速与镜像源管理
 description: 加速从 GitHub 拉取依赖、克隆仓库、下载发布文件，并统一管理 github/npm/pip/go/cargo 的国内镜像源。当 npm/pip/go/cargo 安装卡在 GitHub、git clone 超时或龟速、Release 资产下载不动、raw 文件拉取失败，或需要切换国内镜像源时使用。命令交互参考 nrm（ls/use/test/add/rm），含实测选型、git insteadOf 会连 push 一起劫持的陷阱、镜像失效回退与效果验证。
 description_zh: 一键切换 GitHub/npm/pip/go/cargo 的国内镜像源，加速卡在 GitHub 上的依赖安装与下载。
 description_en: Accelerate GitHub-dependent installs and manage China mirrors for github/npm/pip/go/cargo, with nrm-style ls/use/test/add/rm commands, measured mirror selection and verification.
-version: 1.1.0
+version: 1.1.1
 author: heerey525
 agent_created: true
 ---
