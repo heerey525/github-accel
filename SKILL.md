@@ -1,15 +1,15 @@
 ---
 name: github-accel
-display_name: GitHub 依赖安装加速
-description: 加速从 GitHub 拉取依赖、克隆仓库、下载发布文件。当 npm/pip/go/cargo 安装卡在 GitHub、git clone 超时或龟速、Release 资产下载不动、raw 文件拉取失败时使用。含国内镜像实测选型（gh-proxy.com 首选）、git insteadOf 会连 push 一起劫持的陷阱、镜像失效自动回退、以及加速是否真正生效的验证方法。
-description_zh: 把卡在 GitHub 上的依赖安装、仓库克隆、Release 下载切换到国内代理镜像，含实测选型、失效自动回退与效果验证。
-description_en: Accelerate GitHub-dependent installs by routing git clone, release downloads and raw file fetches through China-accessible mirrors, with measured mirror selection, automatic fallback and verification.
-version: 1.0.0
+display_name: GitHub 加速与镜像源管理
+description: 加速从 GitHub 拉取依赖、克隆仓库、下载发布文件，并统一管理 github/npm/pip/go/cargo 的国内镜像源。当 npm/pip/go/cargo 安装卡在 GitHub、git clone 超时或龟速、Release 资产下载不动、raw 文件拉取失败，或需要切换国内镜像源时使用。命令交互参考 nrm（ls/use/test/add/rm），含实测选型、git insteadOf 会连 push 一起劫持的陷阱、镜像失效回退与效果验证。
+description_zh: 一键切换 GitHub/npm/pip/go/cargo 的国内镜像源，加速卡在 GitHub 上的依赖安装与下载。
+description_en: Accelerate GitHub-dependent installs and manage China mirrors for github/npm/pip/go/cargo, with nrm-style ls/use/test/add/rm commands, measured mirror selection and verification.
+version: 1.1.0
 author: heerey525
 agent_created: true
 ---
 
-# GitHub 依赖安装加速
+# GitHub 加速与镜像源管理
 
 ## 何时用（触发条件）
 
@@ -24,8 +24,9 @@ agent_created: true
 | **pip 安装** | `pip install git+https://github.com/...`、`-r requirements.txt` 里的 git 依赖 |
 | **go 模块** | `go get` 拉取 GitHub 上的模块超时 |
 | **cargo / 其它** | `cargo build` 拉 git 依赖、flutter `pub get`、composer 等 |
+| **只想换源** | 需要把 npm/pip/go/cargo 从官方源切到国内镜像，或对比各镜像速度 |
 
-**不要触发的情况**：目标只是普通 npm/pip 包（走 registry 镜像即可，不需要 GitHub 代理）；或者本机已开着全局 HTTP 代理且测速正常。
+**不要触发的情况**：本机已开着全局 HTTP 代理且测速正常，且不涉及换源需求。
 
 ## 核心结论（先读，省一半时间）
 
@@ -50,26 +51,62 @@ https://gh-proxy.com/https://github.com/user/repo/releases/download/v1.0/x.tar.g
 ```
 **raw 文件**改用 jsdelivr 格式（更快）：`https://raw.githubusercontent.com/u/r/ref/path` → `https://fastly.jsdelivr.net/gh/u/r@ref/path`
 
-## 首选做法：用自带脚本
+## 快速开始（nrm 风格）
 
-脚本位于本 skill 目录下 `scripts/gh-accel.sh`，纯 bash、兼容 macOS 自带 bash 3.2。
+脚本位于本 skill 目录下 `scripts/gh-accel.sh`，纯 bash、兼容 macOS 自带 bash 3.2、零第三方依赖。
 
 ```bash
 S=~/.workbuddy-ai/skills/github-accel/scripts/gh-accel.sh
-
-bash $S probe     # 1. 实测所有镜像，选出最快的一个（写入 ~/.config/gh-accel/state）
-bash $S on        # 2. 开启 git 全局加速（用 probe 的推荐值）
-bash $S verify    # 3. 验证是否真生效（直连 vs 镜像 + md5 内容校验）
-bash $S off       # 4. 用完关掉，恢复原有配置
 ```
 
-辅助命令：
+### 源管理（核心）
 
 ```bash
-bash $S status                          # 看当前 git/npm/pip/go 加速状态
-bash $S url https://github.com/a/b.git  # 把单个 URL 转成加速 URL
-bash $S doctor                          # 体检：git 规则 / push 通道 / 各生态镜像 / 失效域名
+bash $S ls                  # 列出所有生态的镜像源，* 标记当前使用
+bash $S ls npm              # 只看某一个生态
+bash $S use npm taobao      # 切换 npm 源
+bash $S use github ssh      # 切换 GitHub 路由到 SSH
+bash $S test                # 全生态测速对比
+bash $S test npm            # 只测某个生态
+bash $S add pip corp https://pypi.corp.local/simple/   # 加自定义源
+bash $S rm pip corp         # 删自定义源（内置源不可删）
 ```
+
+**生态**：`github` / `npm` / `pip` / `go` / `cargo`
+
+`ls` 输出示例：
+
+```
+GitHub 路由
+  * ssh --------- ssh  # 走 SSH，可推送、抗 443 抖动
+    gh-proxy ---- https://gh-proxy.com  # 只读镜像，release 实测最快
+    direct ------ https://github.com  # HTTPS 直连，国内常超时
+
+npm registry
+    taobao ------ https://registry.npmmirror.com/  # 阿里 npmmirror
+  * huawei ------ https://repo.huaweicloud.com/repository/npm/  # 华为云
+```
+
+### GitHub 专项
+
+```bash
+bash $S probe     # 实测各镜像 release 下载速度，选出推荐值
+bash $S on        # 开启 GitHub 加速（等价 use github <probe 推荐值>）
+bash $S off       # 关闭，恢复原有配置
+bash $S verify    # 验证是否真生效（直连 vs 镜像 + md5 内容校验）
+bash $S url https://github.com/a/b.git   # 把单个 URL 转成加速 URL
+```
+
+### 总览与体检
+
+```bash
+bash $S status    # 各生态当前源一览
+bash $S doctor    # 体检：路由 / push 通道 / SSH / 各生态可用性 / 失效域名
+```
+
+### 自定义源
+
+用户自定义源写在 `~/.config/gh-accel/mirrors.conf`，格式 `eco|name|url|备注`，与内置源同构。`add` / `rm` 自动维护该文件；内置源只读、不可删除。同名自定义源会覆盖内置源。
 
 ## 代理地址的配置与切换
 
@@ -190,6 +227,21 @@ time curl -sL -o /dev/null "https://gh-proxy.com/https://raw.githubusercontent.c
 
 **判定标准**：镜像耗时 < 直连耗时，且 md5 一致 → 加速生效。
 
+## 与 git-mng 共存（重要）
+
+若本机装有 `git-mng`（GitHub/Gitee 凭据与路由管理工具，`~/.local/bin/git-mng`），两者操作**同一组** git config key，需注意：
+
+| gh-accel 源 | 写入的 key | git-mng `route status` 判定 |
+|---|---|---|
+| `use github ssh` | `url.git@github.com:.insteadOf` | `ssh` ✅ 一致 |
+| `use github gh-proxy` | `url.https://gh-proxy.com/https://github.com/.insteadOf` | `proxy` ✅ 一致 |
+| `use github ghfast` / `ghproxy-net` | 各自的 key | `direct` ⚠️ 不一致 |
+
+**结论**：两者对 `ssh` 与 `gh-proxy` 的语义完全一致，可放心混用。但若切到 `ghfast` 等非 gh-proxy 镜像，`git-mng route status` 会误报为 `direct`——它只认 gh-proxy 那个 key，不是配置没生效。
+
+`gh-accel use github <x>` 在切换时会**统一清理**所有已知 GitHub 路由 key（含 git-mng 写入的 ssh key），因此不会出现两条 `insteadOf` 同时生效的冲突。`gh-accel off` 同样会清理全部。
+
 ## 相关 skill
 
 - `macos-app-from-github-release` —— 从 Release 装 macOS 应用时，本 skill 的镜像选型可直接复用
+- `git-mng`（本机工具）—— GitHub/Gitee 凭据与路由体检；其 `route` 与 gh-accel 的 github 生态语义一致

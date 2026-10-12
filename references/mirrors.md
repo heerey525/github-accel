@@ -153,3 +153,78 @@ ghproxy.link        # 返回 HTML 而非文件，不支持 URL 直接拼接
 ```
 
 > 注：`gitmirror.com` 系列、`kkgithub`、`moeyy` 在 2024-2025 年的各类"镜像汇总"文章中高频出现，如今已全部失效。这类文章普遍不维护，**以本文件实测数据为准**。
+
+## 六、gh-accel 内置源清单
+
+脚本内置源表（`scripts/gh-accel.sh` 的 `MIRROR_DB`），用 `gh-accel ls` 查看实时状态与当前值。
+
+### github（GitHub 路由）
+
+| 源名 | 值 | 说明 |
+|---|---|---|
+| `ssh` | `git@github.com:` | 走 SSH，可推送、抗 443 抖动 |
+| `gh-proxy` | `https://gh-proxy.com` | 只读镜像，release 实测最快 |
+| `ghfast` | `https://ghfast.top` | 只读镜像，次选 |
+| `ghproxy-net` | `https://ghproxy.net` | 只读镜像，较慢 |
+| `direct` | `https://github.com` | HTTPS 直连，国内常超时 |
+
+### npm
+
+| 源名 | 值 |
+|---|---|
+| `npm` | `https://registry.npmjs.org/` |
+| `taobao` | `https://registry.npmmirror.com/` |
+| `tencent` | `https://mirrors.cloud.tencent.com/npm/` |
+| `huawei` | `https://repo.huaweicloud.com/repository/npm/` |
+| `cnpm` | `https://r.cnpmjs.org/` |
+| `yarn` | `https://registry.yarnpkg.com/` |
+
+### pip
+
+| 源名 | 值 |
+|---|---|
+| `tencent` | `https://mirrors.cloud.tencent.com/pypi/simple/` |
+| `aliyun` | `https://mirrors.aliyun.com/pypi/simple/` |
+| `ustc` | `https://pypi.mirrors.ustc.edu.cn/simple/` |
+| `tuna` | `https://pypi.tuna.tsinghua.edu.cn/simple/` |
+| `pypi` | `https://pypi.org/simple/` |
+
+### go
+
+| 源名 | 值 |
+|---|---|
+| `aliyun` | `https://mirrors.aliyun.com/goproxy/` |
+| `goproxy-cn` | `https://goproxy.cn` |
+| `goproxy-io` | `https://goproxy.io` |
+| `bcebos` | `https://goproxy.bj.bcebos.com/` |
+| `direct` | `direct`（不走代理） |
+
+### cargo
+
+| 源名 | 值 |
+|---|---|
+| `rsproxy` | `sparse+https://rsproxy.cn/index/` |
+| `tuna` | `sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/` |
+| `crates-io` | `https://github.com/rust-lang/crates.io-index`（git index，无法 HTTP 测速） |
+
+**扩展自定义源**：`gh-accel add <eco> <name> <url> [备注]`，写入 `~/.config/gh-accel/mirrors.conf`（同格式），同名覆盖内置源；`gh-accel rm` 删除。内置源只读。
+
+### 各生态「当前源」的判定方式
+
+| 生态 | 读取位置 |
+|---|---|
+| github | `git config --global` 中 `url.*.insteadOf` 的实际值 |
+| npm | `npm config get registry` |
+| pip | `~/.config/pip/pip.conf`（或 `~/.pip/pip.conf`）的 `index-url` |
+| go | `go env GOPROXY`（比对时自动去掉 `,direct` 后缀） |
+| cargo | `~/.cargo/config.toml` 的 `registry` |
+
+### 与 git-mng 的 key 对应关系
+
+| gh-accel 源 | 写入的 git config key | git-mng `route status` 判定 |
+|---|---|---|
+| `ssh` | `url.git@github.com:.insteadOf` | `ssh` ✅ |
+| `gh-proxy` | `url.https://gh-proxy.com/https://github.com/.insteadOf` | `proxy` ✅ |
+| `ghfast` / `ghproxy-net` | 各自镜像的 key | `direct` ⚠️ 误报（git-mng 只认 gh-proxy） |
+
+`use github <x>` 与 `off` 都会先统一清理全部已知 GitHub 路由 key（含 git-mng 的 ssh key），不会出现多条 `insteadOf` 并存。

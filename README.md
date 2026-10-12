@@ -1,6 +1,6 @@
 # github-accel
 
-> 把卡在 GitHub 上的依赖安装、仓库克隆、Release 下载，一键切换到国内代理镜像。
+> 把卡在 GitHub 上的依赖安装、仓库克隆、Release 下载切到国内镜像；顺带用一套 nrm 风格的命令统一管理 `github` / `npm` / `pip` / `go` / `cargo` 的镜像源。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -41,23 +41,44 @@ cd github-accel
 
 S=./scripts/gh-accel.sh
 
-bash $S probe     # 1. 实测所有镜像，选出最快的（写入 ~/.config/gh-accel/state）
-bash $S on        # 2. 开启 git 全局加速（用 probe 的推荐值）
-bash $S verify    # 3. 验证是否真生效（直连 vs 镜像 + md5 内容校验）
-bash $S off       # 4. 用完关掉，恢复原有配置
+bash $S ls                  # 列出所有镜像源，* 标记当前使用
+bash $S use npm taobao      # 切换 npm 源
+bash $S use github ssh      # 切换 GitHub 路由到 SSH
+bash $S test                # 全生态测速对比
 ```
 
 ## 命令
 
+**源管理**（参考 nrm 的交互）
+
 | 命令 | 作用 |
 |---|---|
-| `probe` | 探测所有镜像可用性与速度，选出推荐值 |
-| `on [mirror]` | 开启 git 全局加速（目标不可用则自动回退到下一个） |
+| `ls [eco]` | 列出镜像源，`*` 标记当前使用 |
+| `use <eco> <name>` | 切换源 |
+| `test [eco]` | 测速对比 |
+| `add <eco> <name> <url> [备注]` | 添加自定义源 |
+| `rm <eco> <name>` | 删除自定义源（内置源不可删） |
+
+**GitHub 专项**
+
+| 命令 | 作用 |
+|---|---|
+| `probe` | 实测各镜像 Release 下载速度，选出推荐值 |
+| `on [name\|url]` | 开启 GitHub 加速（等价 `use github <name>`） |
 | `off` | 关闭加速，恢复原有配置 |
-| `status` | 查看当前 git / npm / pip / go 加速状态 |
-| `url <url>` | 把单个 GitHub URL 转成加速 URL |
+| `url <github-url>` | 把单个 GitHub URL 转成加速 URL |
 | `verify` | 验证加速是否生效（直连 vs 镜像 + 内容一致性） |
-| `doctor` | 体检：git 规则 / push 通道 / 各生态镜像 / 失效域名 |
+
+**总览**
+
+| 命令 | 作用 |
+|---|---|
+| `status` | 各生态当前源一览 |
+| `doctor` | 体检：路由 / push 通道 / SSH / 各生态可用性 / 失效域名 |
+
+**生态（eco）**：`github` · `npm` · `pip` · `go` · `cargo`
+
+自定义源写入 `~/.config/gh-accel/mirrors.conf`，格式 `eco|name|url|备注`。
 
 ## 各生态配置
 
